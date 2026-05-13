@@ -1,0 +1,34 @@
+﻿syntax = "proto3";
+
+package leaderboard;
+
+message LeaderboardUpdated {
+  string leaderboard = 1;
+}
+
+message Question {
+  string content = 1;
+  repeated string hints = 2;
+}
+
+message GameStopped {
+  repeated ScoreItem scores = 1;
+}
+
+message ScoreItem {
+  string player = 1;
+  int32 score = 2;
+}
+
+message TimeConfigChanged {
+  int32 round_time = 1;
+}
+
+message LeaderboardConfigChanged {
+  int32 show_first_rank = 1;
+}
+
+message AddAnswer {
+  string player = 1;
+  string answer = 2;
+}
