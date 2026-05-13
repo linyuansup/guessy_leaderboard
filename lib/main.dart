@@ -342,37 +342,181 @@ class _GamePageState extends State<GamePage> {
   double _dividerPosition = 0.7;
   final List<_CommentItem> _comments = [];
   final ScrollController _commentsScrollController = ScrollController();
-  late Timer _timer;
+  Timer? _timer;
   int _remainingSeconds = 90; // 1.5 minutes
+
+  // Game configuration
+  int _displayTopCount = 10;
+  int _stopNumber = 0; // Number of correct answers to stop the game
+  int _correctCount = 0; // Count of correct answers
+  bool _gameEnded = false; // Flag to prevent multiple stops
+  bool _stopRequestSent = false;
+  bool _isGameStopped = false;
+  final List<ScoreItem> _leaderboard = [];
+
+  // Hint system
+  List<String> _hintsList =
+      []; // All hints including character count and content
+  List<int> _hintDisplayTimes =
+      []; // Times (in seconds) when each hint should be displayed
+  int _currentHintIndex = 0; // Index of the next hint to display
 
   @override
   void initState() {
     super.initState();
     _scribbleNotifier = ScribbleNotifier();
-    _startCountdown();
+    _loadGameConfig();
     _listenToMessages();
   }
 
+  Future<void> _loadGameConfig() async {
+    final provider = Provider.of<WebSocketProvider>(context, listen: false);
+    final url = Uri.parse(
+      'http://${provider.host}:${provider.port}/api/config?action=get',
+    );
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final config = json.decode(response.body) as Map<String, dynamic>;
+        if (!mounted) return;
+        setState(() {
+          _displayTopCount = config['displayTopCount'] as int? ?? 10;
+          _remainingSeconds = config['duration'] as int? ?? 90;
+          _stopNumber = config['stopNumber'] as int? ?? 0;
+        });
+        _initializeHints();
+        _startCountdown();
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _displayTopCount = 10;
+          _remainingSeconds = 90;
+          _stopNumber = 0;
+        });
+        _initializeHints();
+        _startCountdown();
+      }
+    } catch (e) {
+      // Failed to load config, use defaults
+      if (!mounted) return;
+      setState(() {
+        _displayTopCount = 10;
+        _remainingSeconds = 90;
+        _stopNumber = 0;
+      });
+      _initializeHints();
+      _startCountdown();
+    }
+  }
+
+  void _initializeHints() {
+    // Build hints list: character count + user hints + first character
+    // Order: 1. char_count, 2-n. user hints, n+1. first_char (always last)
+    _hintsList = [];
+    _hintsList.add('char_count'); // First hint: character count (underscores)
+    _hintsList.addAll(widget.question.hints); // User-provided hints
+    _hintsList.add('first_char'); // Last hint: first character
+
+    final totalHints = _hintsList.length;
+
+    // Calculate hint display times (evenly distributed)
+    // Formula: displayTime = totalSeconds - (i + 1) * (totalSeconds / (totalHints + 1))
+    // This leaves space at both start and end
+    _hintDisplayTimes = [];
+    final interval = _remainingSeconds / (totalHints + 1);
+    for (int i = 0; i < totalHints; i++) {
+      final timeRemaining = (_remainingSeconds - (i + 1) * interval).toInt();
+      _hintDisplayTimes.add(timeRemaining);
+    }
+
+    _currentHintIndex = 0;
+  }
+
   void _startCountdown() {
+    if (_gameEnded || _isGameStopped) {
+      return;
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _remainingSeconds--;
+
+        // Check if any new hints should be displayed
+        _checkAndDisplayHints();
+
         if (_remainingSeconds <= 0) {
-          _timer.cancel();
-          _stopGame();
+          // Final check to ensure last hint is displayed
+          _checkAndDisplayHints();
+          Future.delayed(const Duration(seconds: 0), () async {
+            if (!_gameEnded) {
+              _gameEnded = true;
+              await _stopGame();
+            }
+            _timer?.cancel();
+          });
         }
       });
     });
   }
 
+  void _checkAndDisplayHints() {
+    while (_currentHintIndex < _hintsList.length &&
+        _remainingSeconds <= _hintDisplayTimes[_currentHintIndex]) {
+      final hint = _hintsList[_currentHintIndex];
+
+      if (hint == 'char_count') {
+        // First hint: character count (displayed as underscores in top bar)
+        // This is handled in the UI, no action needed
+      } else if (hint == 'first_char') {
+        // Last hint: first character (displayed in top bar replacing first underscore)
+        // This is handled in the UI, no action needed
+      } else {
+        // User hints: display in comments area
+        setState(() {
+          _comments.add(
+            _CommentItem(player: '提示', answer: hint, isCorrect: false),
+          );
+        });
+        // Scroll to bottom
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _commentsScrollController.animateTo(
+            _commentsScrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        });
+      }
+
+      _currentHintIndex++;
+    }
+  }
+
   Future<void> _stopGame() async {
+    if (_stopRequestSent) return;
+    _stopRequestSent = true;
     final provider = Provider.of<WebSocketProvider>(context, listen: false);
     final url = Uri.parse('http://${provider.host}:${provider.port}/api/stop');
     try {
-      await http.post(url);
+      await http.get(url);
     } catch (e) {
       // Failed to call API, ignore
     }
+  }
+
+  void _handleGameStopped(GameStopped stopped) {
+    if (_isGameStopped) return;
+
+    final topScores = stopped.scores.take(_displayTopCount).toList();
+    setState(() {
+      _isGameStopped = true;
+      _gameEnded = true;
+      _currentHintIndex = _hintsList.length;
+      _leaderboard
+        ..clear()
+        ..addAll(topScores);
+    });
+
+    _timer?.cancel();
   }
 
   String _formatTime(int seconds) {
@@ -381,12 +525,85 @@ class _GamePageState extends State<GamePage> {
     return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  /// Build the hint display for the top bar (underscores and first character)
+  Widget _buildHintDisplay() {
+    if (_isGameStopped) {
+      return Text(
+        widget.question.content,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      );
+    }
+
+    final answer = widget.question.content;
+
+    // Don't show any hint until the first hint (char_count) is displayed
+    if (_currentHintIndex == 0) {
+      return const SizedBox.shrink(); // Show nothing initially
+    }
+
+    // Check if the 'first_char' hint has been displayed
+    final showFirstChar =
+        _hintsList.isNotEmpty &&
+        _hintsList.last == 'first_char' &&
+        _currentHintIndex > _hintsList.length - 1;
+
+    // Build the hint text
+    String hintText = '';
+    for (int i = 0; i < answer.length; i++) {
+      // Show first character if the last hint (first_char) has been displayed
+      if (showFirstChar && i == 0) {
+        hintText += answer[0];
+      } else {
+        // Display underscore for other characters
+        hintText += '_';
+      }
+    }
+
+    return Text(
+      hintText,
+      style: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 2,
+        fontFamily: 'Monospace',
+      ),
+    );
+  }
+
   void _listenToMessages() {
     final provider = Provider.of<WebSocketProvider>(context, listen: false);
     provider.messageStream.listen(
       (message) {
         if (message is Uint8List && message.isNotEmpty) {
-          if (message[0] == 1 && message.length > 1) {
+          if (message[0] == 7 && message.length > 1) {
+            try {
+              final question = Question.fromBuffer(message.sublist(1));
+              if (!mounted) return;
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => GamePage(question: question),
+                ),
+              );
+            } catch (e) {
+              // Failed to parse, ignore
+            }
+            return; // handled
+          }
+          if (message[0] == 3) {
+            try {
+              if (message.length <= 1) {
+                _handleGameStopped(GameStopped(scores: []));
+                return;
+              }
+              final stopped = GameStopped.fromBuffer(message.sublist(1));
+              _handleGameStopped(stopped);
+            } catch (e) {
+              // Failed to parse, ignore
+            }
+          } else if (message[0] == 1 && message.length > 1) {
             try {
               final update = LeaderboardUpdated.fromBuffer(message.sublist(1));
               final sketchJson =
@@ -413,6 +630,10 @@ class _GamePageState extends State<GamePage> {
                     isCorrect: isCorrect,
                   ),
                 );
+                // Increment correct count if answer is correct
+                if (isCorrect) {
+                  _correctCount++;
+                }
               });
               // Scroll to bottom after adding new comment
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -422,6 +643,17 @@ class _GamePageState extends State<GamePage> {
                   curve: Curves.easeOut,
                 );
               });
+
+              // Check if we've reached the stop number
+              if (_stopNumber > 0 &&
+                  _correctCount >= _stopNumber &&
+                  !_gameEnded) {
+                _gameEnded = true;
+                Future.delayed(const Duration(seconds: 0), () async {
+                  await _stopGame();
+                  _timer?.cancel();
+                });
+              }
             } catch (e) {
               // Failed to parse, ignore
             }
@@ -439,7 +671,7 @@ class _GamePageState extends State<GamePage> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     _commentsScrollController.dispose();
     _scribbleNotifier.dispose();
     super.dispose();
@@ -462,14 +694,18 @@ class _GamePageState extends State<GamePage> {
                 width: constraints.maxWidth,
                 padding: const EdgeInsets.all(16),
                 color: Colors.grey.shade200,
-                child: Center(
-                  child: Text(
-                    _formatTime(_remainingSeconds),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: Center(child: _buildHintDisplay())),
+                    Text(
+                      _formatTime(_remainingSeconds),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
               Expanded(
@@ -510,7 +746,85 @@ class _GamePageState extends State<GamePage> {
                     SizedBox(
                       width: commentsWidth,
                       height: constraints.maxHeight - 64,
-                      child: _comments.isEmpty
+                      child: _isGameStopped
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: Colors.blue.shade100,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        '正确答案',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blueGrey,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        widget.question.content,
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (_leaderboard.isEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          '无人答对',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _leaderboard.isEmpty
+                                      ? const Center(
+                                          child: Text(
+                                            'No leaderboard data',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        )
+                                      : ListView.separated(
+                                          itemCount: _leaderboard.length,
+                                          separatorBuilder: (_, __) =>
+                                              const Divider(height: 1),
+                                          itemBuilder: (context, index) {
+                                            final item = _leaderboard[index];
+                                            return ListTile(
+                                              leading: CircleAvatar(
+                                                child: Text('${index + 1}'),
+                                              ),
+                                              title: Text(item.player),
+                                              trailing: Text(
+                                                '${item.score}',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ],
+                            )
+                          : _comments.isEmpty
                           ? const Center(
                               child: Text(
                                 'No comments yet',
@@ -522,24 +836,45 @@ class _GamePageState extends State<GamePage> {
                               itemCount: _comments.length,
                               itemBuilder: (context, index) {
                                 final comment = _comments[index];
+                                final isHint = comment.player == '提示';
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 8,
                                   ),
-                                  child: Text(
-                                    comment.isCorrect
-                                        ? '[${comment.player}] 回答正确'
-                                        : '[${comment.player}]: ${comment.answer}',
-                                    style: TextStyle(
-                                      color: comment.isCorrect
-                                          ? Colors.green
-                                          : Colors.black,
-                                      fontWeight: comment.isCorrect
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
+                                  child: isHint
+                                      ? Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.yellow.shade100,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.yellow.shade700,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '[${comment.player}] ${comment.answer}',
+                                            style: TextStyle(
+                                              color: Colors.yellow.shade900,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          comment.isCorrect
+                                              ? '[${comment.player}] 回答正确'
+                                              : '[${comment.player}]: ${comment.answer}',
+                                          style: TextStyle(
+                                            color: comment.isCorrect
+                                                ? Colors.green
+                                                : Colors.black,
+                                            fontWeight: comment.isCorrect
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
                                 );
                               },
                             ),
