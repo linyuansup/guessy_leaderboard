@@ -30,7 +30,58 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Leaderboard',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1B9AAA),
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        textTheme: ThemeData.light().textTheme.apply(
+          fontFamily: 'Trebuchet MS',
+          bodyColor: const Color(0xFF1A1F2B),
+          displayColor: const Color(0xFF1A1F2B),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1F2B),
+          ),
+          iconTheme: IconThemeData(color: Color(0xFF1A1F2B)),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF0F3F7),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          labelStyle: const TextStyle(color: Color(0xFF52606D)),
+          hintStyle: const TextStyle(color: Color(0xFF9AA5B1)),
+          prefixIconColor: const Color(0xFF1B9AAA),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1B9AAA),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 10,
+          shadowColor: const Color(0x221B9AAA),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
       ),
       home: const ConnectPage(),
     );
@@ -193,60 +244,124 @@ class _ConnectPageState extends State<ConnectPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Connect to Server'), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.settings_ethernet, size: 80, color: Colors.blue),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _hostController,
-              decoration: const InputDecoration(
-                labelText: 'Server Address',
-                hintText: 'e.g., 192.168.1.100',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.computer),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFE9F5F2), Color(0xFFF6F1EA)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 56,
+                              width: 56,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1B9AAA),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.settings_ethernet,
+                                size: 28,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '连接到服务器',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    '输入地址与端口以开始游戏',
+                                    style: TextStyle(color: Color(0xFF6B7280)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _hostController,
+                          decoration: const InputDecoration(
+                            labelText: 'Server Address',
+                            hintText: 'e.g., 192.168.1.100',
+                            prefixIcon: Icon(Icons.computer),
+                          ),
+                          enabled: !_isConnecting,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _portController,
+                          decoration: const InputDecoration(
+                            labelText: 'Port',
+                            hintText: 'e.g., 8080',
+                            prefixIcon: Icon(Icons.dialpad),
+                          ),
+                          keyboardType: TextInputType.number,
+                          enabled: !_isConnecting,
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1F2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFFDA4AF),
+                              ),
+                            ),
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: Color(0xFF9F1239)),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _isConnecting ? null : _connect,
+                          child: _isConnecting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Connect'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              enabled: !_isConnecting,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _portController,
-              decoration: const InputDecoration(
-                labelText: 'Port',
-                hintText: 'e.g., 8080',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.dialpad),
-              ),
-              keyboardType: TextInputType.number,
-              enabled: !_isConnecting,
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isConnecting ? null : _connect,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _isConnecting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Connect'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -306,10 +421,26 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: const Center(
-        child: Text(
-          'Waiting for start...',
-          style: TextStyle(color: Colors.grey, fontSize: 18),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF4F7FA), Color(0xFFE8F3F1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.hourglass_empty, size: 40, color: Color(0xFF94A3B8)),
+              SizedBox(height: 12),
+              Text(
+                'Waiting for start...',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 18),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -338,6 +469,9 @@ class _CommentItem {
 }
 
 class _GamePageState extends State<GamePage> {
+  static const Color _brandTeal = Color(0xFF1B9AAA);
+  static const Color _brandNavy = Color(0xFF1A1F2B);
+  static const Color _accentAmber = Color(0xFFF4B860);
   late final ScribbleNotifier _scribbleNotifier;
   double _dividerPosition = 0.7;
   final List<_CommentItem> _comments = [];
@@ -528,12 +662,24 @@ class _GamePageState extends State<GamePage> {
   /// Build the hint display for the top bar (underscores and first character)
   Widget _buildHintDisplay() {
     if (_isGameStopped) {
-      return Text(
-        widget.question.content,
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Text(
+          widget.question.content,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: _brandNavy,
+          ),
+        ),
       );
     }
 
@@ -558,17 +704,29 @@ class _GamePageState extends State<GamePage> {
         hintText += answer[0];
       } else {
         // Display underscore for other characters
-        hintText += '_';
+        hintText += '_ ';
       }
     }
 
-    return Text(
-      hintText,
-      style: const TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 2,
-        fontFamily: 'Monospace',
+    hintText +=
+        "×" + answer.length.toString(); // Append character count at the end
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Text(
+        hintText,
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 2,
+          fontFamily: 'Courier New',
+          color: _brandNavy,
+        ),
       ),
     );
   }
@@ -619,9 +777,20 @@ class _GamePageState extends State<GamePage> {
           } else if (message[0] == 6 && message.length > 1) {
             try {
               final answer = AddAnswer.fromBuffer(message.sublist(1));
+              String normalize(String? input) {
+                if (input == null || input.trim().isEmpty) {
+                  return '';
+                }
+
+                return input
+                    .toLowerCase()
+                    .replaceAll(RegExp(r'\s+'), '')
+                    .replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
+              }
+
               final isCorrect =
-                  answer.answer.trim().toLowerCase() ==
-                  widget.question.content.trim().toLowerCase();
+                  normalize(answer.answer) ==
+                  normalize(widget.question.content);
               setState(() {
                 _comments.add(
                   _CommentItem(
@@ -692,17 +861,35 @@ class _GamePageState extends State<GamePage> {
             children: [
               Container(
                 width: constraints.maxWidth,
-                padding: const EdgeInsets.all(16),
-                color: Colors.grey.shade200,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF7FBFA), Color(0xFFEFF6F3)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(child: Center(child: _buildHintDisplay())),
-                    Text(
-                      _formatTime(_remainingSeconds),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _brandNavy,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _formatTime(_remainingSeconds),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -714,8 +901,16 @@ class _GamePageState extends State<GamePage> {
                     SizedBox(
                       width: canvasWidth,
                       height: constraints.maxHeight - 64,
-                      child: IgnorePointer(
-                        child: Scribble(notifier: _scribbleNotifier),
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                            right: BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: IgnorePointer(
+                          child: Scribble(notifier: _scribbleNotifier),
+                        ),
                       ),
                     ),
                     GestureDetector(
@@ -729,13 +924,13 @@ class _GamePageState extends State<GamePage> {
                         cursor: SystemMouseCursors.resizeColumn,
                         child: Container(
                           width: dividerWidth,
-                          color: Colors.grey.shade300,
+                          color: const Color(0xFFE5EAF0),
                           child: Center(
                             child: Container(
                               width: 4,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade500,
+                                color: const Color(0xFF9AA5B1),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -746,138 +941,245 @@ class _GamePageState extends State<GamePage> {
                     SizedBox(
                       width: commentsWidth,
                       height: constraints.maxHeight - 64,
-                      child: _isGameStopped
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.blue.shade100,
+                      child: Container(
+                        color: const Color(0xFFF8FAFC),
+                        child: _isGameStopped
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF0F7F7),
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Color(0xFFDCE7E4),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        '正确答案',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blueGrey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        widget.question.content,
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      if (_leaderboard.isEmpty) ...[
-                                        const SizedBox(height: 8),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         const Text(
-                                          '无人答对',
-                                          style: TextStyle(color: Colors.grey),
+                                          '正确答案',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF64748B),
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          widget.question.content,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: _brandNavy,
+                                          ),
+                                        ),
+                                        if (_leaderboard.isEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          const Text(
+                                            '无人答对',
+                                            style: TextStyle(
+                                              color: Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _leaderboard.isEmpty
+                                        ? const Center(
+                                            child: Text(
+                                              'No leaderboard data',
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                              ),
+                                            ),
+                                          )
+                                        : ListView.separated(
+                                            itemCount: _leaderboard.length,
+                                            padding: const EdgeInsets.all(12),
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 10),
+                                            itemBuilder: (context, index) {
+                                              final item = _leaderboard[index];
+                                              return Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 10,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: const Color(
+                                                      0xFFE2E8F0,
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 32,
+                                                      height: 32,
+                                                      alignment:
+                                                          Alignment.center,
+                                                      decoration: BoxDecoration(
+                                                        color: index == 0
+                                                            ? _accentAmber
+                                                            : const Color(
+                                                                0xFFE2E8F0,
+                                                              ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        '${index + 1}',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: _brandNavy,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Text(
+                                                        item.player,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 10,
+                                                            vertical: 6,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                          0xFFF1F5F9,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        '${item.score}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                ],
+                              )
+                            : _comments.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No comments yet',
+                                  style: TextStyle(color: Color(0xFF94A3B8)),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: _commentsScrollController,
+                                itemCount: _comments.length,
+                                padding: const EdgeInsets.all(12),
+                                itemBuilder: (context, index) {
+                                  final comment = _comments[index];
+                                  final isHint = comment.player == '提示';
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isHint
+                                          ? const Color(0xFFFFF7ED)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isHint
+                                            ? const Color(0xFFFED7AA)
+                                            : const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isHint
+                                                ? const Color(0xFFFED7AA)
+                                                : comment.isCorrect
+                                                ? const Color(0xFFDCFCE7)
+                                                : const Color(0xFFE2E8F0),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isHint
+                                                ? '提示'
+                                                : comment.isCorrect
+                                                ? '正确'
+                                                : '回答',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: _brandNavy,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            isHint
+                                                ? comment.answer
+                                                : comment.isCorrect
+                                                ? '${comment.player} 回答正确'
+                                                : '${comment.player}: ${comment.answer}',
+                                            style: TextStyle(
+                                              color: comment.isCorrect
+                                                  ? const Color(0xFF15803D)
+                                                  : const Color(0xFF1F2937),
+                                              fontWeight: comment.isCorrect
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w400,
+                                            ),
+                                          ),
                                         ),
                                       ],
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _leaderboard.isEmpty
-                                      ? const Center(
-                                          child: Text(
-                                            'No leaderboard data',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        )
-                                      : ListView.separated(
-                                          itemCount: _leaderboard.length,
-                                          separatorBuilder: (_, __) =>
-                                              const Divider(height: 1),
-                                          itemBuilder: (context, index) {
-                                            final item = _leaderboard[index];
-                                            return ListTile(
-                                              leading: CircleAvatar(
-                                                child: Text('${index + 1}'),
-                                              ),
-                                              title: Text(item.player),
-                                              trailing: Text(
-                                                '${item.score}',
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                ),
-                              ],
-                            )
-                          : _comments.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No comments yet',
-                                style: TextStyle(color: Colors.grey),
+                                    ),
+                                  );
+                                },
                               ),
-                            )
-                          : ListView.builder(
-                              controller: _commentsScrollController,
-                              itemCount: _comments.length,
-                              itemBuilder: (context, index) {
-                                final comment = _comments[index];
-                                final isHint = comment.player == '提示';
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  child: isHint
-                                      ? Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.yellow.shade100,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.yellow.shade700,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '[${comment.player}] ${comment.answer}',
-                                            style: TextStyle(
-                                              color: Colors.yellow.shade900,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        )
-                                      : Text(
-                                          comment.isCorrect
-                                              ? '[${comment.player}] 回答正确'
-                                              : '[${comment.player}]: ${comment.answer}',
-                                          style: TextStyle(
-                                            color: comment.isCorrect
-                                                ? Colors.green
-                                                : Colors.black,
-                                            fontWeight: comment.isCorrect
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                );
-                              },
-                            ),
+                      ),
                     ),
                   ],
                 ),
