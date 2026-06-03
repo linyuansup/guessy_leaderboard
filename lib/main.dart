@@ -460,12 +460,16 @@ class _CommentItem {
   final String player;
   final String answer;
   final bool isCorrect;
+  final bool isHint;
+  final DateTime timestamp;
 
   _CommentItem({
     required this.player,
     required this.answer,
     required this.isCorrect,
-  });
+    required this.isHint,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
 }
 
 class _GamePageState extends State<GamePage> {
@@ -608,7 +612,7 @@ class _GamePageState extends State<GamePage> {
         // User hints: display in comments area
         setState(() {
           _comments.add(
-            _CommentItem(player: '提示', answer: hint, isCorrect: false),
+            _CommentItem(player: '提示', answer: hint, isCorrect: false, isHint: true),
           );
         });
         // Scroll to bottom
@@ -797,6 +801,7 @@ class _GamePageState extends State<GamePage> {
                     player: answer.player,
                     answer: answer.answer,
                     isCorrect: isCorrect,
+                    isHint: false,
                   ),
                 );
                 // Increment correct count if answer is correct
@@ -1093,91 +1098,161 @@ class _GamePageState extends State<GamePage> {
                                   ),
                                 ],
                               )
-                            : _comments.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'No comments yet',
-                                  style: TextStyle(color: Color(0xFF94A3B8)),
-                                ),
-                              )
-                            : ListView.builder(
-                                controller: _commentsScrollController,
-                                itemCount: _comments.length,
-                                padding: const EdgeInsets.all(12),
-                                itemBuilder: (context, index) {
-                                  final comment = _comments[index];
-                                  final isHint = comment.player == '提示';
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 10),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isHint
-                                          ? const Color(0xFFFFF7ED)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isHint
-                                            ? const Color(0xFFFED7AA)
-                                            : const Color(0xFFE2E8F0),
+                            : Column(
+                                children: [
+                                  // Fixed top area for hints and correct answers
+                                  if (_comments.where((c) => c.isHint || c.isCorrect).isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFF8FAFC),
+                                        border: Border(
+                                          bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ..._comments
+                                              .where((c) => c.isHint || c.isCorrect)
+                                              .map((comment) => Padding(
+                                                    padding: const EdgeInsets.only(bottom: 8),
+                                                    child: Container(
+                                                      width: double.infinity,
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: comment.isHint
+                                                            ? const Color(0xFFFFF7ED)
+                                                            : const Color(0xFFDCFCE7),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: comment.isHint
+                                                              ? const Color(0xFFFED7AA)
+                                                              : const Color(0xFFBBF7D0),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment.start,
+                                                        children: [
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 4,
+                                                            ),
+                                                            decoration: BoxDecoration(
+                                                              color: comment.isHint
+                                                                  ? const Color(0xFFFED7AA)
+                                                                  : const Color(0xFF86EFAC),
+                                                              borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                            child: Text(
+                                                              comment.isHint ? '提示' : '正确',
+                                                              style: const TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.w700,
+                                                                color: _brandNavy,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 10),
+                                                          Expanded(
+                                                            child: Text(
+                                                              comment.isHint
+                                                                  ? comment.answer
+                                                                  : '${comment.player} 回答正确',
+                                                              style: TextStyle(
+                                                                color: comment.isCorrect
+                                                                    ? const Color(0xFF15803D)
+                                                                    : const Color(0xFF1F2937),
+                                                                fontWeight: comment.isCorrect
+                                                                    ? FontWeight.w600
+                                                                    : FontWeight.w400,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  )),
+                                        ],
                                       ),
                                     ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isHint
-                                                ? const Color(0xFFFED7AA)
-                                                : comment.isCorrect
-                                                ? const Color(0xFFDCFCE7)
-                                                : const Color(0xFFE2E8F0),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
+                                  // Scrollable area for regular answers
+                                  Expanded(
+                                    child: _comments.where((c) => !c.isHint && !c.isCorrect).isEmpty
+                                        ? const Center(
+                                            child: Text(
+                                              'No answers yet',
+                                              style: TextStyle(color: Color(0xFF94A3B8)),
                                             ),
+                                          )
+                                        : ListView.builder(
+                                            controller: _commentsScrollController,
+                                            padding: const EdgeInsets.all(12),
+                                            itemCount: _comments
+                                                .where((c) => !c.isHint && !c.isCorrect)
+                                                .length,
+                                            itemBuilder: (context, index) {
+                                              final regularComments = _comments
+                                                  .where((c) => !c.isHint && !c.isCorrect)
+                                                  .toList();
+                                              final comment = regularComments[index];
+                                              return Container(
+                                                margin: const EdgeInsets.only(bottom: 10),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 10,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: const Color(0xFFE2E8F0),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFE2E8F0),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: const Text(
+                                                        '回答',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: _brandNavy,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Text(
+                                                        '${comment.player}: ${comment.answer}',
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF1F2937),
+                                                          fontWeight: FontWeight.w400,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
                                           ),
-                                          child: Text(
-                                            isHint
-                                                ? '提示'
-                                                : comment.isCorrect
-                                                ? '正确'
-                                                : '回答',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: _brandNavy,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            isHint
-                                                ? comment.answer
-                                                : comment.isCorrect
-                                                ? '${comment.player} 回答正确'
-                                                : '${comment.player}: ${comment.answer}',
-                                            style: TextStyle(
-                                              color: comment.isCorrect
-                                                  ? const Color(0xFF15803D)
-                                                  : const Color(0xFF1F2937),
-                                              fontWeight: comment.isCorrect
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w400,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                                  ),
+                                ],
                               ),
                       ),
                     ),
